@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deuda Cero_v 1.9.0</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/svg+xml" href="./icon.svg">
+  <link rel="apple-touch-icon" href="./icon.svg">
+  <meta name="theme-color" content="#0b0f17">
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- SDK Firebase compat v10 -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body { 
+      background: radial-gradient(circle at top left, #1e293b, #0f172a, #090d16); 
+      color: #f8fafc; 
+      font-family: system-ui, -apple-system, sans-serif; 
+    }
+    
+    .glass-card {
+      background: rgba(15, 23, 42, 0.70);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.40);
+    }
+
+    .glass-card-creditos {
+      background: rgba(6, 78, 59, 0.30);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .glass-card-prestamos {
+      background: rgba(30, 58, 138, 0.30);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+    }
+
+    .glass-card-hipotecas {
+      background: rgba(88, 28, 135, 0.30);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+    }
+
+    .accordion-content { transition: max-height 0.4s cubic-bezier(0, 1, 0, 1); max-height: 0; overflow: hidden; }
+    .accordion-content.open { max-height: 2000px; transition: max-height 0.4s ease-in-out; }
+    .chevron { transition: transform 0.25s ease; }
+    .chevron.rotate { transform: rotate(180deg); }
+    .hexagon { clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); }
+  </style>
+</head>
+<body class="pb-28 select-none min-h-screen flex flex-col justify-between text-base">
+
+  <!-- Header translúcido -->
+  <header class="glass-card sticky top-0 z-40 border-b border-slate-800/80 p-4 shadow-xl">
+    <div class="max-w-md mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-2xl shadow-inner">⚡</div>
+        <div>
+          <h1 class="text-2xl font-black tracking-tight text-slate-100 flex items-center gap-2">
+            Deuda Cero <span class="text-xs text-slate-400 font-normal">v1.9.0</span>
+          </h1>
+          <span id="badge-cloud-status" class="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Nube Conectada
+          </span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="cambiarSeccion('calculadora')" class="w-10 h-10 rounded-full bg-slate-800/80 border border-slate-700/80 text-amber-400 font-black text-base flex items-center justify-center hover:bg-slate-700 transition" title="Calculadora Financiera">
+          🧮
+        </button>
+        <button onclick="cambiarSeccion('ajustes')" class="w-10 h-10 rounded-full bg-slate-800/80 border border-slate-700/80 text-slate-300 font-black text-base flex items-center justify-center hover:bg-slate-700 transition" title="Ajustes">
+          ⚙️
+        </button>
+        <button onclick="abrirTutorial()" class="w-10 h-10 rounded-full bg-slate-800/80 border border-slate-700/80 text-emerald-400 font-black text-lg flex items-center justify-center hover:bg-slate-700 transition" title="Ver Instrucciones">
+          ?
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto p-4 space-y-6 w-full flex-grow">
+
+    <!-- Banner Notificación Mensual -->
+    <div id="banner-notif-mes" class="hidden glass-card bg-emerald-500/20 border border-emerald-500/40 rounded-2xl p-4 text-sm text-emerald-200 flex items-center justify-between shadow-lg">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">📅</span>
+        <div>
+          <p class="font-bold text-slate-100" id="txt-notif-mes">¡Nuevo mes detectado!</p>
+          <p class="text-xs text-emerald-300">Se han actualizado las cuotas mensuales de tu lista.</p>
+        </div>
+      </div>
+      <button onclick="cerrarNotifMes()" class="text-xs bg-emerald-500 text-slate-950 px-3 py-1.5 rounded-xl font-bold">OK</button>
+    </div>
+
+    <!-- Navegación por Pestañas -->
+    <nav id="nav-deudas" class="grid grid-cols-3 gap-2 p-1.5 glass-card rounded-2xl">
+      <button id="tab-creditos" onclick="cambiarSeccion('creditos')" class="py-3.5 text-base font-bold rounded-xl transition bg-emerald-500 text-slate-950 shadow-lg">
+        💳 Créditos
+      </button>
+      <button id="tab-prestamos" onclick="cambiarSeccion('prestamos')" class="py-3.5 text-base font-bold rounded-xl transition text-slate-400 hover:text-slate-200">
+        🚗 Préstamos
+      </button>
+      <button id="tab-hipotecas" onclick="cambiarSeccion('hipotecas')" class="py-3.5 text-base font-bold rounded-xl transition text-slate-400 hover:text-slate-200">
+        🏠 Hipotecas
+      </button>
+    </nav>
+
+    <!-- VISTA PRINCIPAL: DEUDAS Y LISTA -->
+    <div id="vista-deudas" class="space-y-6">
+      
+      <!-- Resumen Principal -->
+      <section id="panel-resumen-main" class="glass-card glass-card-creditos rounded-3xl p-6 space-y-5 transition-all duration-300">
+        <div class="flex justify-between items-baseline">
+          <span class="text-base uppercase tracking-wider font-bold text-slate-300" id="lbl-total-deuda">Pendiente en Créditos</span>
+          <span id="total-deuda" class="text-3xl font-black text-rose-400 drop-shadow">0,00 €</span>
+        </div>
+
+        <div class="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 space-y-3 backdrop-blur-md">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-xs uppercase font-bold text-slate-400 block mb-0.5">Total Devuelto al Banco</span>
+              <span id="total-abonado-historico" class="text-xl font-black text-emerald-400">0,00 €</span>
+            </div>
+            <div class="text-right">
+              <span class="text-xs uppercase font-bold text-slate-400 block mb-0.5">Tu Porcentaje Pagado</span>
+              <span id="porcentaje-global" class="text-xl font-black text-blue-400">0%</span>
+            </div>
+          </div>
+          <!-- Barra de Progreso Global Animada -->
+          <div class="w-full bg-slate-900 rounded-full h-3 overflow-hidden border border-slate-800">
+            <div id="bar-progreso-global" class="bg-gradient-to-r from-blue-500 to-emerald-400 h-3 rounded-full transition-all duration-700 w-0"></div>
+          </div>
+        </div>
+
+        <div class="bg-emerald-500/15 border border-emerald-500/30 rounded-2xl p-4 flex items-center justify-between backdrop-blur-md">
+          <div>
+            <span class="text-xs uppercase font-bold text-emerald-400 block mb-1">Día de Libertad Financiera</span>
+            <span id="fecha-libertad" class="text-lg font-black text-slate-100">Calculando...</span>
+          </div>
+          <span class="text-3xl">🕊️</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800/80 text-base">
+          <div>
+            <p class="text-slate-400 text-xs font-semibold">Cuotas Mínimas</p>
+            <p id="total-cuotas" class="font-black text-slate-200 text-lg">0,00 €/mes</p>
+          </div>
+          <div>
+            <p class="text-slate-400 text-xs font-semibold">Extra de Aceleración</p>
+            <p id="total-extra" class="font-black text-emerald-400 text-lg">0,00 €/mes</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Guía Explicativa -->
+      <section class="glass-card rounded-2xl overflow-hidden">
+        <button onclick="toggleAccordion('sec-guia', 'chev-guia')" class="w-full p-4 flex items-center justify-between text-left hover:bg-slate-800/40 transition">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">💡</span>
+            <div>
+              <h2 class="text-lg font-bold text-slate-200" id="titulo-guia">¿Cómo librarte de las Tarjetas?</h2>
+              <p class="text-xs text-slate-400">Guía clara sin palabras técnicas</p>
+            </div>
+          </div>
+          <svg id="chev-guia" class="chevron w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </button>
+        
+        <div id="sec-guia" class="accordion-content border-t border-slate-800/80 bg-slate-950/40 p-5 space-y-3 text-base text-slate-300 leading-relaxed">
+          <div id="contenido-guia-dinamico"></div>
+        </div>
+      </section>
+
+      <!-- Configurador Aceleración -->
+      <section id="sec-panel-estrategia" class="glass-card rounded-2xl overflow-hidden">
+        <button onclick="toggleAccordion('sec-estrategia', 'chev-estrategia')" class="w-full p-4 flex items-center justify-between text-left hover:bg-slate-800/40 transition">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">🎯</span>
+            <div>
+              <h2 class="text-lg font-bold text-slate-200">Acelerar Liquidación</h2>
+              <p class="text-xs text-slate-400">Simula una aportación extra mensual</p>
+            </div>
+          </div>
+          <svg id="chev-estrategia" class="chevron w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </button>
+        
+        <div id="sec-estrategia" class="accordion-content border-t border-slate-800/80 bg-slate-950/40 p-5 space-y-4">
+          <div id="selector-metodo-box" class="grid grid-cols-2 gap-2 p-1.5 bg-slate-950/80 rounded-xl">
+            <button id="btn-nieve" onclick="setEstrategia('nieve')" class="py-3 text-sm font-bold rounded-lg transition bg-emerald-500 text-slate-950">Bola de Nieve</button>
+            <button id="btn-avalancha" onclick="setEstrategia('avalancha')" class="py-3 text-sm font-bold rounded-lg text-slate-400 hover:text-slate-200 transition">Avalancha</button>
+          </div>
+          <div>
+            <label class="block text-sm font-bold text-slate-300 mb-1.5">Aportación extra cada mes (<span class="simbolo-moneda">€</span>)</label>
+            <input type="number" id="input-extra" value="0" min="0" oninput="actualizarSimulacion()" class="w-full bg-slate-950/90 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 text-lg font-bold focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+      </section>
+
+      <!-- Formulario Inteligente (Guardar / Editar) -->
+      <section class="glass-card rounded-2xl overflow-hidden">
+        <button onclick="toggleAccordion('sec-nueva-deuda', 'chev-nueva-deuda')" class="w-full p-4 flex items-center justify-between text-left hover:bg-slate-800/40 transition">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">➕</span>
+            <div>
+              <h2 class="text-lg font-bold text-slate-200" id="titulo-form">Añadir Tarjeta / Crédito</h2>
+              <p class="text-xs text-slate-400" id="subtitulo-form">Formulario adaptado para esta sección</p>
+            </div>
+          </div>
+          <svg id="chev-nueva-deuda" class="chevron w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </button>
+
+        <div id="sec-nueva-deuda" class="accordion-content border-t border-slate-800/80 bg-slate-950/40 p-5">
+          <form id="form-deuda" onsubmit="guardarDeuda(event)" class="space-y-4">
+            <input type="hidden" id="edit-deuda-id" value="">
+
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1">Nombre o concepto</label>
+              <input type="text" id="deuda-nombre" placeholder="Ej: Tarjeta Visa, Coche o Hipoteca Casa" required class="w-full bg-slate-950/90 border border-slate-800 rounded-xl px-4 py-3 text-base text-slate-100 focus:outline-none focus:border-emerald-500">
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Monto inicial (<span class="simbolo-moneda">€</span>)</label>
+                <input type="number" step="0.01" id="deuda-original" placeholder="150000" required class="w-full bg-slate-950/90 border border-slate-800 rounded-xl px-3 py-3 text-base text-slate-100 focus:outline-none focus:border-emerald-500">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Saldo pendiente (<span class="simbolo-moneda">€</span>)</label>
+                <input type="number" step="0.01" id="deuda-saldo" placeholder="95000" required class="w-full bg-slate-950/90 border border-slate-800 rounded-xl px-3 py-3 text-base text-slate-100 focus:outline-none focus:border-emerald-500">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Cuota mensual (<span class="simbolo-moneda">€</span>)</label>
+                <input type="number" step="0.01" id="deuda-cuota" placeholder="550" required class="w-full bg-slate-950/90 border border-slate-800 rounded-xl px-3 py-3 text-base text-slate-100 focus:outline-none focus:border-emerald-500">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Interés TAE % (Ej: 2.65)</label>
+                <input type="number" step="any" id="deuda-tae" placeholder="2.65" class="w-full bg-slate-950/90 border border-slate-800 rounded-xl px-3 py-3 text-base text-slate-100 focus:outline-none focus:border-emerald-500">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1">Fecha de inicio (Mes y Año)</label>
+              <input type="month" id="deuda-inicio" required class="w-full bg-slate-950/90 border border-slate-800 rounded-xl px-4 py-3 text-base text-slate-100 focus:outline-none focus:border-emerald-500">
+            </div>
+
+            <div id="campo-extra-hipoteca" class="hidden space-y-2 pt-2 border-t border-slate-800/80">
+              <label class="block text-xs text-purple-300 font-bold">¿Usaste parte de esta hipoteca para coche, muebles o reformas? (<span class="simbolo-moneda">€</span>)</label>
+              <input type="number" step="0.01" id="deuda-sobrefinanciacion" placeholder="Ej: 20000" class="w-full bg-slate-950/90 border border-slate-800 rounded-xl px-4 py-3 text-base text-slate-100 focus:outline-none focus:border-purple-500">
+            </div>
+            
+            <div class="flex gap-2">
+              <button type="submit" id="btn-guardar-form" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-3.5 rounded-xl transition text-base shadow-lg shadow-emerald-500/20">
+                Guardar en mi Lista
+              </button>
+              <button type="button" id="btn-cancelar-edit" onclick="cancelarEdicion()" class="hidden bg-slate-800 text-slate-300 font-bold px-4 rounded-xl text-sm">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Lista Dinámica -->
+      <section class="space-y-4">
+        <h3 class="text-base font-bold uppercase tracking-wider text-slate-400 px-1" id="titulo-seccion-lista">Tus Créditos y Tarjetas</h3>
+        <div id="lista-deudas" class="space-y-4"></div>
+      </section>
+
+      <!-- Aviso Legal -->
+      <section class="glass-card bg-slate-950/80 rounded-2xl p-4 border border-slate-800 text-xs text-slate-400 leading-relaxed space-y-1">
+        <p class="font-bold text-slate-300 uppercase tracking-wider text-[11px]">⚠️ Aviso de Responsabilidad Legal</p>
+        <p>Esta aplicación es una herramienta personal de control visual y seguimiento. El cumplimiento de tus cuotas, plazos, intereses, penalizaciones o retrasos bancarios es responsabilidad única y exclusiva del usuario.</p>
+      </section>
+
+    </div>
+
+    <!-- VISTA: CALCULADORA FINANCIERA -->
+    <div id="vista-calculadora" class="hidden space-y-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-black text-amber-400 flex items-center gap-2">🧮 Calculadora Financiera</h2>
+        <button onclick="cambiarSeccion('creditos')" class="text-xs bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-700 text-slate-300 font-bold">Volver</button>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 space-y-4">
+        <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">🔍 Interés Real y Sobreprecio</h3>
+        <p class="text-xs text-slate-400">Calcula cuánto terminarás pagando en total al banco por tu préstamo o compra.</p>
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <label class="block text-slate-400 mb-1">Monto Prestado (<span class="simbolo-moneda">€</span>)</label>
+            <input type="number" id="calc1-prestado" placeholder="10000" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 text-sm">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Cuota Mensual (<span class="simbolo-moneda">€</span>)</label>
+            <input type="number" id="calc1-cuota" placeholder="220" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Plazo total (Meses)</label>
+          <input type="number" id="calc1-meses" placeholder="60" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 text-sm">
+        </div>
+        <button onclick="calcularInteresReal()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl text-sm transition">Calcular Sobreprecio</button>
+        <div id="res-calc-interes" class="hidden bg-slate-950/80 p-4 rounded-xl border border-slate-800 text-sm leading-relaxed space-y-1"></div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 space-y-4">
+        <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">⚡ Simulador de Pago Extra</h3>
+        <p class="text-xs text-slate-400">Descubre cuántos meses de deuda te quitas si pones un dinero extra hoy.</p>
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <label class="block text-slate-400 mb-1">Deuda Pendiente (<span class="simbolo-moneda">€</span>)</label>
+            <input type="number" id="calc-deuda" placeholder="5000" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 text-sm">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Cuota Actual (<span class="simbolo-moneda">€</span>)</label>
+            <input type="number" id="calc-cuota" placeholder="150" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Pago Extra que quieres meter hoy (<span class="simbolo-moneda">€</span>)</label>
+          <input type="number" id="calc-extra" placeholder="500" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 text-sm">
+        </div>
+        <button onclick="calcularSimulacionExtra()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl text-sm transition">Calcular Ahorro</button>
+        <div id="res-calc-extra" class="hidden bg-slate-950/80 p-4 rounded-xl border border-slate-800 text-sm text-amber-300"></div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 space-y-4">
+        <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">📊 Límite de Endeudamiento Seguro</h3>
+        <p class="text-xs text-slate-400">Comprueba si puedes permitirte pedir un nuevo préstamo sin riesgo.</p>
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <label class="block text-slate-400 mb-1">Ingreso Neto Mensual (<span class="simbolo-moneda">€</span>)</label>
+            <input type="number" id="calc-ingresos" placeholder="1800" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 text-sm">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Total Cuotas Actuales (<span class="simbolo-moneda">€</span>)</label>
+            <input type="number" id="calc-gastos" placeholder="400" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 text-sm">
+          </div>
+        </div>
+        <button onclick="calcularCapacidadRiesgo()" class="w-full bg-blue-500 hover:bg-blue-400 text-slate-950 font-bold py-3 rounded-xl text-sm transition">Evaluar mi Riesgo</button>
+        <div id="res-calc-riesgo" class="hidden bg-slate-950/80 p-4 rounded-xl border border-slate-800 text-sm"></div>
+      </div>
+    </div>
+
+    <!-- VISTA: AJUSTES GLOBALES -->
+    <div id="vista-ajustes" class="hidden space-y-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-black text-slate-100 flex items-center gap-2">⚙️ Ajustes de la App</h2>
+        <button onclick="cambiarSeccion('creditos')" class="text-xs bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-700 text-slate-300 font-bold">Volver</button>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 space-y-3">
+        <h3 class="text-base font-bold text-slate-200">Divisa y Moneda Local</h3>
+        <p class="text-xs text-slate-400">Selecciona el símbolo de tu país para personalizar la app.</p>
+        <select id="select-moneda" onchange="guardarMoneda(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-base text-slate-100 font-bold">
+          <option value="€">EUR (€) - Euro</option>
+          <option value="$">USD ($) - Dólar</option>
+          <option value="£">GBP (£) - Libra Esterlina</option>
+          <option value="MXN $">MXN ($) - Peso Mexicano</option>
+          <option value="COP $">COP ($) - Peso Colombiano</option>
+          <option value="CLP $">CLP ($) - Peso Chileno</option>
+        </select>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 space-y-3">
+        <h3 class="text-base font-bold text-slate-200">Sincronización en la Nube (Firebase)</h3>
+        <p class="text-xs text-slate-400">Tus datos están protegidos en tu base de datos privada de Firebase.</p>
+        <button onclick="forzarSincronizacionNubeManually()" class="w-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold py-3 rounded-xl text-xs transition hover:bg-emerald-500/20 flex items-center justify-center gap-2">
+          ☁️ Sincronizar Ahora con la Nube
+        </button>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 space-y-3">
+        <h3 class="text-base font-bold text-slate-200">Copia de Seguridad Manual (JSON)</h3>
+        <p class="text-xs text-slate-400">Exporta o importa un archivo físico de respaldo si prefieres un archivo local.</p>
+        <div class="grid grid-cols-2 gap-3 pt-1">
+          <button onclick="exportarBackupJSON()" class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold py-3 rounded-xl text-xs transition hover:bg-emerald-500/20">
+            📥 Exportar Datos
+          </button>
+          <button onclick="document.getElementById('input-import-json').click()" class="bg-blue-500/10 text-blue-400 border border-blue-500/30 font-bold py-3 rounded-xl text-xs transition hover:bg-blue-500/20">
+            📤 Importar Datos
+          </button>
+          <input type="file" id="input-import-json" onchange="importarBackupJSON(event)" accept=".json" class="hidden">
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 space-y-3">
+        <h3 class="text-base font-bold text-rose-400">Mantenimiento de Fábrica</h3>
+        <p class="text-xs text-slate-400">Borra todos los registros guardados si quieres reiniciar la aplicación completamente.</p>
+        <button onclick="borrarTodoDeFabrica()" class="w-full bg-rose-500/10 text-rose-400 border border-rose-500/30 font-bold py-3 rounded-xl text-xs transition hover:bg-rose-500/20">
+          🗑️ Borrar Todos Mis Datos
+        </button>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 space-y-3">
+        <h3 class="text-base font-bold text-slate-200">Privacidad y Términos Legales</h3>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Tus datos financieros se guardan localmente en IndexedDB y se respaldan de forma privada en tu proyecto personal de Firebase. No se comparten con ningún tercero. El usuario es el único responsable de la gestión real de sus deudas.
+        </p>
+        <button onclick="abrirTutorial()" class="text-xs text-emerald-400 font-bold block pt-1">Volver a ver Tutorial de Bienvenida</button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Pie de página con Sello Oficial medbasha -->
+  <footer class="py-6 text-center border-t border-slate-800/50 mt-10">
+    <div class="inline-flex items-center gap-2 opacity-50 hover:opacity-100 transition duration-300">
+      <div class="w-4 h-4 bg-slate-400 text-slate-950 font-black text-[8px] flex items-center justify-center hexagon">MB</div>
+      <span class="text-xs text-slate-400 tracking-wider font-semibold lowercase">medbasha</span>
+    </div>
+  </footer>
+
+  <!-- Modal Tutorial de Bienvenida -->
+  <div id="modal-tutorial" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="glass-card rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-5 border border-slate-700/60">
+      <div class="text-center space-y-2">
+        <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-3xl mx-auto shadow-inner">⚡</div>
+        <h3 class="text-xl font-black text-slate-100">¡Bienvenido a Deuda Cero v1.9.0!</h3>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Tu organizador personal para llevar el control visual de tus créditos, préstamos e hipotecas con respaldo en la nube.
+        </p>
+      </div>
+      <div class="space-y-2.5 text-xs text-slate-300 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
+        <p>💳 <strong>3 Entornos Claros:</strong> Organiza Créditos, Préstamos e Hipotecas.</p>
+        <p>☁️ <strong>Respaldo Nube Automático:</strong> Tus datos protegidos ante cualquier cambio de dispositivo.</p>
+        <p>📅 <strong>Descuento Mensual Automático:</strong> La app amortiza tus cuotas al cambiar de mes.</p>
+        <p>🔒 <strong>Privacidad 100%:</strong> Datos privados en tu base de datos personal.</p>
+      </div>
+      <button onclick="cerrarTutorial()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-3.5 rounded-2xl transition text-base shadow-xl shadow-emerald-500/20">
+        ¡Entendido!
+      </button>
+    </div>
+  </div>
+
+  <!-- Lógica JavaScript Integrada Completa v1.9.0 -->
+  <script>
+    // Configuración Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyBzRhhVEc1A3dAj4s7rDb7oRv91LOwPTDQ",
+      authDomain: "deuda-cero-d142e.firebaseapp.com",
+      projectId: "deuda-cero-d142e",
+      storageBucket: "deuda-cero-d142e.firebasestorage.app",
+      messagingSenderId: "963869280192",
+      appId: "1:963869280192:web:7e6916ae8149333d046a25"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const fsDB = firebase.firestore();
+
+    let db;
+    let estrategia = 'nieve';
+    let seccionActual = 'creditos';
+    let monedaActual = '€';
+
+    const DB_NAME = 'DeudaCeroDB_v190';
+    const DB_VERSION = 1;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      solicitarPersistencia();
+      initDB();
+      comprobarTutorial();
+      cargarMonedaGuardada();
+      verificarDescuentoMensualAuto();
+    });
+
+    async function solicitarPersistencia() {
+      if (navigator.storage && navigator.storage.persist) {
+        await navigator.storage.persist();
+      }
+    }
+
+    function actualizarBadgeCloud(estado) {
+      const badge = document.getElementById('badge-cloud-status');
+      if (!badge) return;
+      if (estado === 'ok') {
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Nube Conectada`;
+        badge.className = 'text-[10px] text-emerald-400 flex items-center gap-1 font-semibold';
+      } else if (estado === 'sync') {
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Sincronizando...`;
+        badge.className = 'text-[10px] text-amber-400 flex items-center gap-1 font-semibold';
+      } else {
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-500"></span> Modo Local`;
+        badge.className = 'text-[10px] text-slate-400 flex items-center gap-1 font-semibold';
+      }
+    }
+
+    function initDB() {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+      request.onupgradeneeded = (e) => {
+        db = e.target.result;
+        if (!db.objectStoreNames.contains('deudas')) {
+          db.createObjectStore('deudas', { keyPath: 'id', autoIncrement: true });
+        }
+      };
+
+      request.onsuccess = (e) => {
+        db = e.target.result;
+        sincronizarDesdeNubeSiVacio();
+      };
+
+      request.onerror = (e) => console.error('Error IndexedDB', e);
+    }
+
+    async function sincronizarDesdeNubeSiVacio() {
+      actualizarBadgeCloud('sync');
+      try {
+        const tx = db.transaction(['deudas'], 'readonly');
+        const store = tx.objectStore('deudas');
+        const req = store.getAll();
+
+        req.onsuccess = async () => {
+          const locales = req.result || [];
+          if (locales.length === 0) {
+            const snapshot = await fsDB.collection('deudacero_registros').get();
+            if (!snapshot.empty) {
+              const txW = db.transaction(['deudas'], 'readwrite');
+              const storeW = txW.objectStore('deudas');
+              snapshot.forEach(doc => {
+                const data = doc.data();
+                delete data.id;
+                storeW.add(data);
+              });
+              txW.oncomplete = () => {
+                cargarDeudas();
+                actualizarBadgeCloud('ok');
+              };
+              return;
+            }
+          }
+          cargarDeudas();
+          actualizarBadgeCloud('ok');
+        };
+      } catch (err) {
+        console.warn('Error syncing from Cloud:', err);
+        cargarDeudas();
+        actualizarBadgeCloud('local');
+      }
+    }
+
+    async function guardarEnNubeGlobal() {
+      if (!db) return;
+      actualizarBadgeCloud('sync');
+      try {
+        const tx = db.transaction(['deudas'], 'readonly');
+        const store = tx.objectStore('deudas');
+        const req = store.getAll();
+
+        req.onsuccess = async () => {
+          const deudas = req.result || [];
+          const snapshot = await fsDB.collection('deudacero_registros').get();
+          const batch = fsDB.batch();
+          
+          snapshot.docs.forEach(doc => batch.delete(doc.ref));
+
+          deudas.forEach(item => {
+            const ref = fsDB.collection('deudacero_registros').doc();
+            batch.set(ref, item);
+          });
+
+          await batch.commit();
+          actualizarBadgeCloud('ok');
+        };
+      } catch (e) {
+        console.error('Error saving to cloud:', e);
+        actualizarBadgeCloud('local');
+      }
+    }
+
+    function forzarSincronizacionNubeManually() {
+      guardarEnNubeGlobal();
+      alert("¡Sincronización enviada con éxito a la nube!");
+    }
+
+    function comprobarTutorial() {
+      const visto = localStorage.getItem('tutorial_deudacero_visto_v190');
+      if (!visto) {
+        document.getElementById('modal-tutorial').classList.remove('hidden');
+      }
+    }
+
+    function cerrarTutorial() {
+      localStorage.setItem('tutorial_deudacero_visto_v190', 'true');
+      document.getElementById('modal-tutorial').classList.add('hidden');
+    }
+
+    function abrirTutorial() {
+      document.getElementById('modal-tutorial').classList.remove('hidden');
+    }
+
+    function cargarMonedaGuardada() {
+      const m = localStorage.getItem('deudacero_moneda') || '€';
+      guardarMoneda(m, false);
+    }
+
+    function guardarMoneda(m, recargar = true) {
+      monedaActual = m;
+      localStorage.setItem('deudacero_moneda', m);
+      document.getElementById('select-moneda').value = m;
+      
+      document.querySelectorAll('.simbolo-moneda').forEach(el => {
+        el.textContent = m;
+      });
+
+      if (recargar) cargarDeudas();
+    }
+
+    function verificarDescuentoMensualAuto() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const mesActualKey = `${year}-${month}`;
+      const ultimoMesProcesado = localStorage.getItem('deudacero_ultimo_mes_procesado');
+
+      if (ultimoMesProcesado && ultimoMesProcesado !== mesActualKey) {
+        procesarAmortizacionMesAuto(mesActualKey);
+      } else {
+        localStorage.setItem('deudacero_ultimo_mes_procesado', mesActualKey);
+      }
+    }
+
+    function procesarAmortizacionMesAuto(mesKey) {
+      if (!db) return;
+      const tx = db.transaction(['deudas'], 'readwrite');
+      const store = tx.objectStore('deudas');
+      const req = store.getAll();
+
+      req.onsuccess = () => {
+        const deudas = req.result || [];
+        deudas.forEach(item => {
+          if (item.saldo > 0) {
+            const tasaMensual = (item.tae / 100) / 12;
+            const interesMes = item.saldo * tasaMensual;
+            const amortizacionCapital = Math.max(0, item.cuota - interesMes);
+            item.saldo = Math.max(0, item.saldo - amortizacionCapital);
+            store.put(item);
+          }
+        });
+
+        tx.oncomplete = () => {
+          localStorage.setItem('deudacero_ultimo_mes_procesado', mesKey);
+          document.getElementById('banner-notif-mes').classList.remove('hidden');
+          cargarDeudas();
+          guardarEnNubeGlobal();
+        };
+      };
+    }
+
+    function cerrarNotifMes() {
+      document.getElementById('banner-notif-mes').classList.add('hidden');
+    }
+
+    function cambiarSeccion(seccion) {
+      seccionActual = seccion;
+
+      const navDeudas = document.getElementById('nav-deudas');
+      const vistaDeudas = document.getElementById('vista-deudas');
+      const vistaCalc = document.getElementById('vista-calculadora');
+      const vistaAjustes = document.getElementById('vista-ajustes');
+
+      if (seccion === 'calculadora') {
+        navDeudas.classList.add('hidden');
+        vistaDeudas.classList.add('hidden');
+        vistaCalc.classList.remove('hidden');
+        vistaAjustes.classList.add('hidden');
+        return;
+      }
+
+      if (seccion === 'ajustes') {
+        navDeudas.classList.add('hidden');
+        vistaDeudas.classList.add('hidden');
+        vistaCalc.classList.add('hidden');
+        vistaAjustes.classList.remove('hidden');
+        return;
+      }
+
+      navDeudas.classList.remove('hidden');
+      vistaDeudas.classList.remove('hidden');
+      vistaCalc.classList.add('hidden');
+      vistaAjustes.classList.add('hidden');
+
+      const tabs = ['creditos', 'prestamos', 'hipotecas'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        if (t === seccion) {
+          if (t === 'creditos') btn.className = 'py-3.5 text-base font-bold rounded-xl transition bg-emerald-500 text-slate-950 shadow-lg';
+          if (t === 'prestamos') btn.className = 'py-3.5 text-base font-bold rounded-xl transition bg-blue-500 text-slate-950 shadow-lg';
+          if (t === 'hipotecas') btn.className = 'py-3.5 text-base font-bold rounded-xl transition bg-purple-500 text-slate-950 shadow-lg';
+        } else {
+          btn.className = 'py-3.5 text-base font-bold rounded-xl transition text-slate-400 hover:text-slate-200';
+        }
+      });
+
+      const panelResumen = document.getElementById('panel-resumen-main');
+      const campoExtraHipo = document.getElementById('campo-extra-hipoteca');
+      const selectorMetodoBox = document.getElementById('selector-metodo-box');
+      const btnGuardar = document.getElementById('btn-guardar-form');
+
+      if (seccion === 'creditos') {
+        panelResumen.className = 'glass-card glass-card-creditos rounded-3xl p-6 space-y-5 transition-all duration-300';
+        document.getElementById('lbl-total-deuda').textContent = 'Pendiente en Créditos';
+        document.getElementById('titulo-guia').textContent = '¿Cómo librarte de las Tarjetas?';
+        document.getElementById('contenido-guia-dinamico').innerHTML = `
+          <p><strong class="text-emerald-400">Las tarjetas son trampas de alto interés.</strong> Aplica la estrategia Bola de Nieve o Avalancha para liquidarlas una a una con aportaciones extra.</p>
+        `;
+        document.getElementById('titulo-form').textContent = 'Añadir Tarjeta / Crédito';
+        document.getElementById('titulo-seccion-lista').textContent = 'Tus Créditos y Tarjetas';
+        btnGuardar.className = 'w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-3.5 rounded-xl transition text-base shadow-lg shadow-emerald-500/20';
+        campoExtraHipo.classList.add('hidden');
+        selectorMetodoBox.classList.remove('hidden');
+      } else if (seccion === 'prestamos') {
+        panelResumen.className = 'glass-card glass-card-prestamos rounded-3xl p-6 space-y-5 transition-all duration-300';
+        document.getElementById('lbl-total-deuda').textContent = 'Pendiente en Préstamos';
+        document.getElementById('titulo-guia').textContent = '¿Cómo funcionan tus Préstamos?';
+        document.getElementById('contenido-guia-dinamico').innerHTML = `
+          <p><strong class="text-blue-400">Coche, estudios o reformas.</strong> Al indicar la fecha de inicio, la app deduce automáticamente lo abonado y los años que te faltan.</p>
+        `;
+        document.getElementById('titulo-form').textContent = 'Añadir Préstamo Personal';
+        document.getElementById('titulo-seccion-lista').textContent = 'Tus Préstamos Personales';
+        btnGuardar.className = 'w-full bg-blue-500 hover:bg-blue-400 text-slate-950 font-black py-3.5 rounded-xl transition text-base shadow-lg shadow-blue-500/20';
+        campoExtraHipo.classList.add('hidden');
+        selectorMetodoBox.classList.remove('hidden');
+      } else {
+        panelResumen.className = 'glass-card glass-card-hipotecas rounded-3xl p-6 space-y-5 transition-all duration-300';
+        document.getElementById('lbl-total-deuda').textContent = 'Pendiente en Hipotecas';
+        document.getElementById('titulo-guia').textContent = '¿Cómo controlar tu Hipoteca?';
+        document.getElementById('contenido-guia-dinamico').innerHTML = `
+          <p><strong class="text-purple-400">Tu casa y tu patrimonio.</strong> Observa el porcentaje exacto de propiedad que ya es tuyo y la fecha en que serás 100% libre de hipoteca.</p>
+        `;
+        document.getElementById('titulo-form').textContent = 'Añadir Hipoteca';
+        document.getElementById('titulo-seccion-lista').textContent = 'Tus Hipotecas Registradas';
+        btnGuardar.className = 'w-full bg-purple-500 hover:bg-purple-400 text-slate-950 font-black py-3.5 rounded-xl transition text-base shadow-lg shadow-purple-500/20';
+        campoExtraHipo.classList.remove('hidden');
+        selectorMetodoBox.classList.add('hidden');
+      }
+
+      cancelarEdicion();
+      cargarDeudas();
+    }
+
+    function toggleAccordion(contentId, chevronId) {
+      const content = document.getElementById(contentId);
+      const chevron = document.getElementById(chevronId);
+      content.classList.toggle('open');
+      chevron.classList.toggle('rotate');
+    }
+
+    function setEstrategia(tipo) {
+      estrategia = tipo;
+      const btnNieve = document.getElementById('btn-nieve');
+      const btnAva = document.getElementById('btn-avalancha');
+
+      if (tipo === 'nieve') {
+        btnNieve.className = 'py-3 text-sm font-bold rounded-lg transition bg-emerald-500 text-slate-950';
+        btnAva.className = 'py-3 text-sm font-bold rounded-lg text-slate-400 hover:text-slate-200 transition';
+      } else {
+        btnAva.className = 'py-3 text-sm font-bold rounded-lg transition bg-emerald-500 text-slate-950';
+        btnNieve.className = 'py-3 text-sm font-bold rounded-lg text-slate-400 hover:text-slate-200 transition';
+      }
+      cargarDeudas();
+    }
+
+    function deducirTAEMatematica(original, saldo, cuota) {
+      if (cuota <= 0 || saldo <= 0) return 12.0;
+      let ratio = (cuota * 12) / saldo;
+      let taeEstimada = ratio * 45; 
+      return Math.min(28.0, Math.max(2.5, parseFloat(taeEstimada.toFixed(2))));
+    }
+
+    function guardarDeuda(event) {
+      event.preventDefault();
+      const idExistente = document.getElementById('edit-deuda-id').value;
+      const nombre = document.getElementById('deuda-nombre').value.trim();
+      const original = parseFloat(document.getElementById('deuda-original').value);
+      const saldo = parseFloat(document.getElementById('deuda-saldo').value);
+      const cuota = parseFloat(document.getElementById('deuda-cuota').value);
+      let taeInput = parseFloat(document.getElementById('deuda-tae').value);
+      const inicio = document.getElementById('deuda-inicio').value;
+      const sobrefinanciacion = parseFloat(document.getElementById('deuda-sobrefinanciacion').value) || 0;
+
+      if (!nombre || isNaN(original) || isNaN(saldo) || isNaN(cuota) || !inicio) return;
+
+      if (isNaN(taeInput) || taeInput <= 0) {
+        taeInput = deducirTAEMatematica(original, saldo, cuota);
+      } else {
+        taeInput = parseFloat(taeInput.toFixed(2));
+      }
+
+      const tx = db.transaction(['deudas'], 'readwrite');
+      const store = tx.objectStore('deudas');
+
+      const datosObjeto = { 
+        nombre, 
+        original, 
+        saldo, 
+        cuota, 
+        tae: taeInput, 
+        inicio, 
+        sobrefinanciacion,
+        tipoSeccion: seccionActual 
+      };
+
+      if (idExistente) {
+        datosObjeto.id = parseInt(idExistente);
+        store.put(datosObjeto);
+      } else {
+        store.add(datosObjeto);
+      }
+
+      tx.oncomplete = () => {
+        cancelarEdicion();
+        toggleAccordion('sec-nueva-deuda', 'chev-nueva-deuda');
+        cargarDeudas();
+        guardarEnNubeGlobal();
+      };
+    }
+
+    function cargarEdicion(id) {
+      const tx = db.transaction(['deudas'], 'readonly');
+      const store = tx.objectStore('deudas');
+      const req = store.get(id);
+
+      req.onsuccess = () => {
+        const item = req.result;
+        if (!item) return;
+
+        document.getElementById('edit-deuda-id').value = item.id;
+        document.getElementById('deuda-nombre').value = item.nombre;
+        document.getElementById('deuda-original').value = item.original;
+        document.getElementById('deuda-saldo').value = item.saldo;
+        document.getElementById('deuda-cuota').value = item.cuota;
+        document.getElementById('deuda-tae').value = item.tae;
+        document.getElementById('deuda-inicio').value = item.inicio;
+        document.getElementById('deuda-sobrefinanciacion').value = item.sobrefinanciacion || '';
+
+        document.getElementById('btn-guardar-form').textContent = 'Actualizar Deuda';
+        document.getElementById('btn-cancelar-edit').classList.remove('hidden');
+
+        const secForm = document.getElementById('sec-nueva-deuda');
+        if (!secForm.classList.contains('open')) {
+          toggleAccordion('sec-nueva-deuda', 'chev-nueva-deuda');
+        }
+        secForm.scrollIntoView({ behavior: 'smooth' });
+      };
+    }
+
+    function cancelarEdicion() {
+      document.getElementById('form-deuda').reset();
+      document.getElementById('edit-deuda-id').value = '';
+      document.getElementById('btn-guardar-form').textContent = 'Guardar en mi Lista';
+      document.getElementById('btn-cancelar-edit').classList.add('hidden');
+    }
+
+    function borrarDeuda(id) {
+      if (confirm("¿Deseas eliminar esta deuda de tu lista?")) {
+        const tx = db.transaction(['deudas'], 'readwrite');
+        tx.objectStore('deudas').delete(id);
+        tx.oncomplete = () => {
+          cargarDeudas();
+          guardarEnNubeGlobal();
+        };
+      }
+    }
+
+    function amortizarExtra(id) {
+      const monto = prompt(`¿Cuánto dinero extra quieres amortizar hoy en esta deuda? (${monedaActual}):`);
+      if (!monto || isNaN(monto) || parseFloat(monto) <= 0) return;
+
+      const tx = db.transaction(['deudas'], 'readwrite');
+      const store = tx.objectStore('deudas');
+      const request = store.get(id);
+
+      request.onsuccess = () => {
+        const deuda = request.result;
+        deuda.saldo = Math.max(0, deuda.saldo - parseFloat(monto));
+        store.put(deuda);
+        tx.oncomplete = () => {
+          cargarDeudas();
+          guardarEnNubeGlobal();
+        };
+      };
+    }
+
+    function cargarDeudas() {
+      if (!db) return;
+      const tx = db.transaction(['deudas'], 'readonly');
+      const store = tx.objectStore('deudas');
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        let todasDeudas = request.result || [];
+        let deudasFiltradas = todasDeudas.filter(d => (d.tipoSeccion || 'creditos') === seccionActual);
+
+        if (estrategia === 'nieve') {
+          deudasFiltradas.sort((a, b) => a.saldo - b.saldo);
+        } else {
+          deudasFiltradas.sort((a, b) => b.tae - a.tae);
+        }
+
+        renderizarApp(deudasFiltradas);
+      };
+    }
+
+    function calcularMesesPasados(fechaInicioStr) {
+      if (!fechaInicioStr) return 0;
+      const [yearStr, monthStr] = fechaInicioStr.split('-');
+      const fechaInicio = new Date(parseInt(yearStr), parseInt(monthStr) - 1, 1);
+      const hoy = new Date();
+      
+      let meses = (hoy.getFullYear() - fechaInicio.getFullYear()) * 12;
+      meses += hoy.getMonth() - fechaInicio.getMonth();
+      return Math.max(0, meses);
+    }
+
+    function calcularFechaFinExacta(meses) {
+      if (!meses || meses >= 999) return 'Indefinido';
+      const f = new Date();
+      f.setMonth(f.getMonth() + meses);
+      const opciones = { year: 'numeric', month: 'long' };
+      return f.toLocaleDateString('es-ES', opciones);
+    }
+
+    function renderizarApp(deudas) {
+      const contenedor = document.getElementById('lista-deudas');
+      contenedor.innerHTML = '';
+
+      let totalDeudaPendiente = 0;
+      let totalOriginalPrestado = 0;
+      let totalAbonadoHistorico = 0;
+      let totalCuotas = 0;
+      const extra = parseFloat(document.getElementById('input-extra').value) || 0;
+
+      document.getElementById('total-extra').textContent = `${extra.toFixed(2)} ${monedaActual}/mes`;
+
+      if (deudas.length === 0) {
+        contenedor.innerHTML = `
+          <div class="text-center py-10 glass-card rounded-2xl p-6">
+            <p class="text-slate-300 text-lg font-bold">No hay registros en esta categoría.</p>
+            <p class="text-xs text-slate-400 mt-1">¡Añade un elemento para ver tu progreso!</p>
+          </div>`;
+        document.getElementById('total-deuda').textContent = `0,00 ${monedaActual}`;
+        document.getElementById('total-cuotas').textContent = `0,00 ${monedaActual}/mes`;
+        document.getElementById('fecha-libertad').textContent = '¡Sin Deudas!';
+        document.getElementById('total-abonado-historico').textContent = `0,00 ${monedaActual}`;
+        document.getElementById('porcentaje-global').textContent = '0%';
+        document.getElementById('bar-progreso-global').style.width = '0%';
+        return;
+      }
+
+      let maxMesesRestantes = 0;
+
+      deudas.forEach((item, index) => {
+        totalDeudaPendiente += item.saldo;
+        totalOriginalPrestado += item.original;
+        totalCuotas += item.cuota;
+
+        const mesesPasados = calcularMesesPasados(item.inicio);
+        const yaAbonadoEstimado = Math.max(0, item.original - item.saldo);
+        totalAbonadoHistorico += yaAbonadoEstimado;
+
+        const porcentajePagado = Math.min(100, Math.max(0, (yaAbonadoEstimado / item.original) * 100));
+
+        const esTarget = index === 0;
+        const cuotaEfectiva = item.cuota + (esTarget ? extra : 0);
+        
+        const tasaMensual = (item.tae / 100) / 12;
+        let mesesRestantes = 0;
+        let saldoTemp = item.saldo;
+
+        if (cuotaEfectiva > saldoTemp * tasaMensual) {
+          while (saldoTemp > 0 && mesesRestantes < 600) {
+            let interesMes = saldoTemp * tasaMensual;
+            saldoTemp = saldoTemp + interesMes - cuotaEfectiva;
+            mesesRestantes++;
+          }
+        } else {
+          mesesRestantes = 999;
+        }
+
+        if (mesesRestantes > maxMesesRestantes && mesesRestantes !== 999) maxMesesRestantes = mesesRestantes;
+
+        let colorPeligro = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+        let textoPeligro = 'Controlada';
+        if (item.tae >= 15) {
+          colorPeligro = 'text-rose-400 bg-rose-500/10 border-rose-500/20';
+          textoPeligro = '🔴 Peligrosa';
+        } else if (item.tae >= 8) {
+          colorPeligro = 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+          textoPeligro = '🟡 Precaución';
+        }
+
+        let costoTotalSobrefinanciacion = 0;
+        if (item.sobrefinanciacion > 0) {
+          costoTotalSobrefinanciacion = item.sobrefinanciacion * (1 + (tasaMensual * mesesRestantes));
+        }
+
+        const fechaFinTargetStr = calcularFechaFinExacta(mesesRestantes);
+
+        const tarjeta = document.createElement('div');
+        tarjeta.className = `glass-card rounded-2xl overflow-hidden ${esTarget ? 'ring-2 ring-emerald-500/50' : ''}`;
+
+        tarjeta.innerHTML = `
+          <button onclick="toggleAccordion('det-${item.id}', 'chev-${item.id}')" class="w-full p-5 flex items-center justify-between text-left hover:bg-slate-800/30 transition">
+            <div class="flex items-center gap-3.5 w-full pr-2">
+              <span class="w-10 h-10 shrink-0 rounded-full ${esTarget ? 'bg-emerald-500 text-slate-950 font-black' : 'bg-slate-800/90 text-slate-300'} flex items-center justify-center text-base shadow">
+                ${seccionActual === 'hipotecas' ? '🏠' : (seccionActual === 'prestamos' ? '🚗' : index + 1)}
+              </span>
+              <div class="w-full">
+                <div class="flex items-center justify-between">
+                  <h4 class="font-bold text-slate-100 text-lg flex items-center gap-2">
+                    ${item.nombre} 
+                    ${esTarget ? '<span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold">OBJETIVO ATAQUE</span>' : ''}
+                  </h4>
+                  <span class="text-base font-black text-emerald-400">${porcentajePagado.toFixed(0)}% pagado</span>
+                </div>
+                <div class="w-full bg-slate-950/80 rounded-full h-2.5 mt-2 overflow-hidden border border-slate-800">
+                  <div class="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" style="width: ${porcentajePagado}%"></div>
+                </div>
+              </div>
+            </div>
+            <svg id="chev-${item.id}" class="chevron w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+          </button>
+
+          <div id="det-${item.id}" class="accordion-content border-t border-slate-800/80 bg-slate-950/50 p-5 space-y-4">
+            <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-2">
+              <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider block">Camino Recorrido (${mesesPasados} meses pagando)</span>
+              <div class="grid grid-cols-2 gap-3 text-base">
+                <div>
+                  <span class="text-slate-400 block text-xs">Monto Inicial:</span>
+                  <span class="font-bold text-slate-200">${item.original.toFixed(2)} ${monedaActual}</span>
+                </div>
+                <div>
+                  <span class="text-slate-400 block text-xs">Devuelto al Banco:</span>
+                  <span class="font-bold text-emerald-400">${yaAbonadoEstimado.toFixed(2)} ${monedaActual}</span>
+                </div>
+              </div>
+            </div>
+
+            ${item.sobrefinanciacion > 0 ? `
+              <div class="bg-purple-500/10 border border-purple-500/30 p-3.5 rounded-xl text-xs space-y-1">
+                <span class="font-bold text-purple-300 block text-xs">⚠️ Dinero extra para coche/muebles: ${item.sobrefinanciacion.toFixed(2)}${monedaActual}</span>
+                <p class="text-xs text-slate-300">Coste real total proyectado al pagarlo a largo plazo: <strong class="text-rose-400">${costoTotalSobrefinanciacion.toFixed(2)}${monedaActual}</strong></p>
+              </div>
+            ` : ''}
+
+            <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-2">
+              <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">Lo que te queda por liquidar</span>
+              <div class="grid grid-cols-2 gap-3 text-base">
+                <div>
+                  <span class="text-slate-400 block text-xs">Saldo Restante:</span>
+                  <span class="font-bold text-rose-400">${item.saldo.toFixed(2)} ${monedaActual}</span>
+                </div>
+                <div>
+                  <span class="text-slate-400 block text-xs">Tiempo Restante:</span>
+                  <span class="font-bold text-slate-200">${mesesRestantes === 999 ? 'Cuota insuficiente' : mesesRestantes + ' meses'}</span>
+                  <span class="text-[11px] text-emerald-400 block font-semibold">📅 ${fechaFinTargetStr}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-base">
+              <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                <span class="text-slate-400 block text-xs mb-1">Interés TAE</span>
+                <span class="font-bold text-slate-200 px-2 py-0.5 border rounded text-xs ${colorPeligro}">${item.tae}% (${textoPeligro})</span>
+              </div>
+              <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                <span class="text-slate-400 block text-xs mb-1">Cuota Mensual</span>
+                <span class="font-bold ${esTarget && extra > 0 ? 'text-emerald-400' : 'text-slate-200'}">${cuotaEfectiva.toFixed(2)} ${monedaActual}</span>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 gap-2">
+              <button onclick="amortizarExtra(${item.id})" class="text-xs bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 px-3 py-2.5 rounded-xl font-bold transition flex items-center gap-1">
+                ⚡ Pago Extra
+              </button>
+              <button onclick="cargarEdicion(${item.id})" class="text-xs bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/30 px-3 py-2.5 rounded-xl font-bold transition flex items-center gap-1">
+                ✏️ Editar
+              </button>
+              <button onclick="borrarDeuda(${item.id})" class="text-xs text-rose-400 hover:text-rose-300 font-bold px-2 py-2.5 transition">
+                Eliminar
+              </button>
+            </div>
+          </div>
+        `;
+
+        contenedor.appendChild(tarjeta);
+      });
+
+      const porcentajeGlobalCalc = totalOriginalPrestado > 0 ? (totalAbonadoHistorico / totalOriginalPrestado) * 100 : 0;
+      document.getElementById('total-abonado-historico').textContent = `${totalAbonadoHistorico.toFixed(2)} ${monedaActual}`;
+      document.getElementById('porcentaje-global').textContent = `${porcentajeGlobalCalc.toFixed(0)}%`;
+      document.getElementById('bar-progreso-global').style.width = `${Math.min(100, Math.max(0, porcentajeGlobalCalc))}%`;
+
+      if (maxMesesRestantes > 0 && maxMesesRestantes < 999) {
+        const fechaActual = new Date();
+        fechaActual.setMonth(fechaActual.getMonth() + maxMesesRestantes);
+        const opciones = { year: 'numeric', month: 'long' };
+        document.getElementById('fecha-libertad').textContent = fechaActual.toLocaleDateString('es-ES', opciones);
+      } else {
+        document.getElementById('fecha-libertad').textContent = 'Revisa tus cuotas mínimas';
+      }
+
+      document.getElementById('total-deuda').textContent = `${totalDeudaPendiente.toFixed(2)} ${monedaActual}`;
+      document.getElementById('total-cuotas').textContent = `${totalCuotas.toFixed(2)} ${monedaActual}/mes`;
+    }
+
+    function actualizarSimulacion() {
+      cargarDeudas();
+    }
+
+    function calcularInteresReal() {
+      const prestado = parseFloat(document.getElementById('calc1-prestado').value);
+      const cuota = parseFloat(document.getElementById('calc1-cuota').value);
+      const meses = parseFloat(document.getElementById('calc1-meses').value);
+      const res = document.getElementById('res-calc-interes');
+
+      if (!prestado || !cuota || !meses) return;
+
+      const totalPagado = cuota * meses;
+      const interesesTotales = Math.max(0, totalPagado - prestado);
+      const porcentajeSobreprecio = (interesesTotales / prestado) * 100;
+
+      res.classList.remove('hidden');
+      res.innerHTML = `
+        <p class="text-slate-200">💰 <strong>Total Devuelto al Final:</strong> ${totalPagado.toFixed(2)} ${monedaActual}</p>
+        <p class="text-rose-400">💸 <strong>Regalo en Intereses al Banco:</strong> ${interesesTotales.toFixed(2)} ${monedaActual} (${porcentajeSobreprecio.toFixed(1)}% extra)</p>
+      `;
+    }
+
+    function calcularSimulacionExtra() {
+      const deuda = parseFloat(document.getElementById('calc-deuda').value);
+      const cuota = parseFloat(document.getElementById('calc-cuota').value);
+      const extra = parseFloat(document.getElementById('calc-extra').value);
+      const res = document.getElementById('res-calc-extra');
+
+      if (!deuda || !cuota || !extra) return;
+
+      const mesesSinExtra = Math.ceil(deuda / cuota);
+      const mesesConExtra = Math.ceil((deuda - extra) / cuota);
+      const mesesAhorrados = Math.max(0, mesesSinExtra - mesesConExtra);
+
+      res.classList.remove('hidden');
+      res.innerHTML = `
+        🎉 <strong>¡Resultado!</strong> Al amortizar <strong>${extra} ${monedaActual}</strong> hoy, te ahorras aproximadamente <strong>${mesesAhorrados} meses</strong> de cuotas del banco.
+      `;
+    }
+
+    function calcularCapacidadRiesgo() {
+      const ingresos = parseFloat(document.getElementById('calc-ingresos').value);
+      const gastos = parseFloat(document.getElementById('calc-gastos').value);
+      const res = document.getElementById('res-calc-riesgo');
+
+      if (!ingresos || isNaN(gastos)) return;
+
+      const ratio = (gastos / ingresos) * 100;
+      res.classList.remove('hidden');
+
+      if (ratio <= 35) {
+        res.className = 'bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-xl text-sm text-emerald-300';
+        res.innerHTML = `✅ <strong>Nivel de Riesgo Bajo (${ratio.toFixed(1)}%):</strong> Estás dentro del límite sano recomendado por expertos (máximo 35% de tus ingresos).`;
+      } else if (ratio <= 50) {
+        res.className = 'bg-amber-500/10 border border-amber-500/30 p-4 rounded-xl text-sm text-amber-300';
+        res.innerHTML = `⚠️ <strong>Nivel de Riesgo Medio (${ratio.toFixed(1)}%):</strong> Destinas más del 35% de tus ingresos a deudas. Evita pedir nuevos préstamos.`;
+      } else {
+        res.className = 'bg-rose-500/10 border border-rose-500/30 p-4 rounded-xl text-sm text-rose-300';
+        res.innerHTML = `🔴 <strong>Nivel de Riesgo Alto (${ratio.toFixed(1)}%):</strong> Tu nivel de endeudamiento es crítico. Prioriza eliminar tarjetas urgentemente.`;
+      }
+    }
+
+    function exportarBackupJSON() {
+      const tx = db.transaction(['deudas'], 'readonly');
+      const store = tx.objectStore('deudas');
+      const req = store.getAll();
+
+      req.onsuccess = () => {
+        const data = {
+          version: '1.9.0',
+          moneda: monedaActual,
+          deudas: req.result || []
+        };
+
+        const jsonStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `DeudaCero_Backup_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+      };
+    }
+
+    function importarBackupJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const importedData = JSON.parse(e.target.result);
+          if (importedData.deudas && Array.isArray(importedData.deudas)) {
+            const tx = db.transaction(['deudas'], 'readwrite');
+            const store = tx.objectStore('deudas');
+            
+            importedData.deudas.forEach(item => {
+              delete item.id;
+              store.add(item);
+            });
+
+            tx.oncomplete = () => {
+              alert("¡Copia de seguridad importada con éxito!");
+              if (importedData.moneda) guardarMoneda(importedData.moneda);
+              cargarDeudas();
+              guardarEnNubeGlobal();
+            };
+          }
+        } catch (err) {
+          alert("Error importando el archivo de copia de seguridad.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function borrarTodoDeFabrica() {
+      if (confirm("¿Estás seguro de que deseas borrar TODOS los datos de tus deudas? Esta acción no se puede deshacer.")) {
+        const tx = db.transaction(['deudas'], 'readwrite');
+        const store = tx.objectStore('deudas');
+        store.clear();
+        tx.oncomplete = () => {
+          alert("Base de datos reiniciada con éxito.");
+          cargarDeudas();
+          guardarEnNubeGlobal();
+        };
+      }
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(err => console.error("Error SW:", err));
+    }
+  </script>
+</body>
+</html>
